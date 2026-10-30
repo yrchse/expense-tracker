@@ -1,4 +1,5 @@
-expenses.json
-budget.json
-expenses.csv
 __pycache__/
+*.pyc
+data/*.json
+data/*.db
+expenses.csv

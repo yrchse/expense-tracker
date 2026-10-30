@@ -13,7 +13,7 @@ def load_budget():
         with open("budget.json", "r") as file:
             budget = json.load(file)
     except (FileNotFoundError, json.JSONDecodeError):
-        budget = 5000
+        budget = 50000
         save_budget()
 
 
@@ -375,7 +375,7 @@ while True:
 
     elif choice == "13":
         export_csv()
-        
+
     elif choice == "14":
         show_chart()
 
