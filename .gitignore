@@ -1,5 +1,28 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Learning and old project files
+practice/
+legacy/
+
+# Database
+data/
+*.db
+
+# Python cache
 __pycache__/
 *.pyc
-data/*.json
-data/*.db
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# Generated files
+expenses.csv
+*.log
+logs/
+# Generated exports
 expenses.csv
