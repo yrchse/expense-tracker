@@ -1,28 +1,45 @@
-# Secrets
+
+# Python cache
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Python environments
+.venv/
+venv/
+env/
+
+# Private environment variables
 .env
 .env.*
 !.env.example
 
-# Learning and old project files
-practice/
-legacy/
-
-# Database
+# Databases and local data
 data/
 *.db
+*.sqlite
+*.sqlite3
 
-# Python cache
-__pycache__/
-*.pyc
-.pytest_cache/
+# React dependencies and build output
+node_modules/
+dist/
+frontend/node_modules/
+frontend/dist/
 
-# Virtual environments
-.venv/
-venv/
-
-# Generated files
-expenses.csv
+# Logs and temporary files
 *.log
-logs/
-# Generated exports
-expenses.csv
+*.tmp
+*.csv
+
+# Old learning files
+legacy/
+practice/
+
+# Editor and operating system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
