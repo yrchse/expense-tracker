@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import Dashboard from './Dashboard'
 import './App.css'
 
-const API = 'http://127.0.0.1:8000'
+const API = import.meta.env.VITE_API_URL || 'http://127.0.0.1:8000'
 const LIMIT = 10
 
 function emptyForm() {
