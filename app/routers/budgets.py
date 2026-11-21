@@ -26,9 +26,9 @@ def set_budget(
         connection.execute(
             """
             INSERT INTO budgets (user_id, amount)
-            VALUES (?, ?)
-            ON CONFLICT(user_id)
-            DO UPDATE SET amount = excluded.amount
+            VALUES (%s, %s)
+            ON CONFLICT (user_id)
+            DO UPDATE SET amount = EXCLUDED.amount
             """,
             (current_user["id"], budget.amount)
         )
@@ -56,7 +56,7 @@ def check_budget(
             """
             SELECT amount
             FROM budgets
-            WHERE user_id = ?
+            WHERE user_id = %s
             """,
             (current_user["id"],)
         ).fetchone()
@@ -71,15 +71,15 @@ def check_budget(
 
         result = connection.execute(
             """
-            SELECT COALESCE(SUM(amount), 0)
+            SELECT COALESCE(SUM(amount), 0) AS spent
             FROM expenses
-            WHERE user_id = ?
-            AND substr(date, 1, 7) = ?
+            WHERE user_id = %s
+            AND substr(date, 1, 7) = %s
             """,
             (current_user["id"], current_month)
         ).fetchone()
 
-        spent = result[0]
+        spent = result["spent"]
         budget_amount = budget["amount"]
 
         return {

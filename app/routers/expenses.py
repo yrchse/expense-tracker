@@ -1,12 +1,9 @@
+
 import csv
 import io
-import re
 
-from datetime import date
-from fastapi import Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
-
-from fastapi import APIRouter, Depends, HTTPException
 
 from app.database import get_connection
 from app.auth import get_current_user
@@ -33,17 +30,17 @@ def get_expenses(
     connection = get_connection()
 
     try:
-        sql = "SELECT * FROM expenses WHERE user_id = ?"
+        sql = "SELECT * FROM expenses WHERE user_id = %s"
         parameters = [current_user["id"]]
 
         if search:
-            sql += " AND (name LIKE ? OR category LIKE ?)"
+            sql += " AND (name ILIKE %s OR category ILIKE %s)"
             keyword = f"%{search}%"
             parameters.extend([keyword, keyword])
 
-        # Safe because sort_by and order are restricted above
+        # Safe because sort_by and order are validated
         sql += f" ORDER BY {sort_by} {order.upper()}"
-        sql += " LIMIT ? OFFSET ?"
+        sql += " LIMIT %s OFFSET %s"
 
         parameters.extend([limit, skip])
 
@@ -58,6 +55,7 @@ def get_expenses(
 
 
 # 2. GET ONE EXPENSE
+
 @router.get("/{expense_id}", response_model=ExpenseResponse)
 def get_expense(
     expense_id: int,
@@ -69,7 +67,7 @@ def get_expense(
         expense = connection.execute(
             """
             SELECT * FROM expenses
-            WHERE id = ? AND user_id = ?
+            WHERE id = %s AND user_id = %s
             """,
             (expense_id, current_user["id"])
         ).fetchone()
@@ -87,6 +85,7 @@ def get_expense(
 
 
 # 3. CREATE EXPENSE
+
 @router.post(
     "",
     status_code=201,
@@ -103,7 +102,8 @@ def add_expense(
             """
             INSERT INTO expenses
             (user_id, name, amount, category, date)
-            VALUES (?, ?, ?, ?, ?)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING id
             """,
             (
                 current_user["id"],
@@ -114,10 +114,11 @@ def add_expense(
             )
         )
 
+        new_expense_id = cursor.fetchone()["id"]
         connection.commit()
 
         return {
-            "id": cursor.lastrowid,
+            "id": new_expense_id,
             "user_id": current_user["id"],
             **expense.model_dump()
         }
@@ -127,6 +128,7 @@ def add_expense(
 
 
 # 4. UPDATE EXPENSE
+
 @router.put("/{expense_id}", response_model=ExpenseResponse)
 def update_expense(
     expense_id: int,
@@ -139,8 +141,9 @@ def update_expense(
         cursor = connection.execute(
             """
             UPDATE expenses
-            SET name = ?, amount = ?, category = ?, date = ?
-            WHERE id = ? AND user_id = ?
+            SET name = %s, amount = %s,
+                category = %s, date = %s
+            WHERE id = %s AND user_id = %s
             """,
             (
                 expense.name,
@@ -171,6 +174,7 @@ def update_expense(
 
 
 # 5. DELETE EXPENSE
+
 @router.delete("/{expense_id}")
 def delete_expense(
     expense_id: int,
@@ -182,7 +186,7 @@ def delete_expense(
         cursor = connection.execute(
             """
             DELETE FROM expenses
-            WHERE id = ? AND user_id = ?
+            WHERE id = %s AND user_id = %s
             """,
             (expense_id, current_user["id"])
         )
@@ -202,6 +206,9 @@ def delete_expense(
     finally:
         connection.close()
 
+
+# 6. CATEGORY SUMMARY
+
 @router.get("/summary/categories")
 def category_summary(
     current_user: dict = Depends(get_current_user)
@@ -211,9 +218,10 @@ def category_summary(
     try:
         rows = connection.execute(
             """
-            SELECT category, ROUND(SUM(amount), 2) AS total
+            SELECT category,
+                   ROUND(SUM(amount)::numeric, 2)::double precision AS total
             FROM expenses
-            WHERE user_id = ?
+            WHERE user_id = %s
             GROUP BY category
             ORDER BY category
             """,
@@ -224,6 +232,9 @@ def category_summary(
 
     finally:
         connection.close()
+
+
+# 7. MONTHLY REPORT
 
 @router.get("/reports/monthly")
 def monthly_report(
@@ -241,8 +252,8 @@ def monthly_report(
             SELECT COUNT(*) AS total_expenses,
                    COALESCE(SUM(amount), 0) AS total_spent
             FROM expenses
-            WHERE user_id = ?
-            AND substr(date, 1, 7) = ?
+            WHERE user_id = %s
+            AND substr(date, 1, 7) = %s
             """,
             (current_user["id"], month)
         ).fetchone()
@@ -256,6 +267,9 @@ def monthly_report(
     finally:
         connection.close()
 
+
+# 8. CSV EXPORT
+
 @router.get("/export/csv")
 def export_expenses(
     current_user: dict = Depends(get_current_user)
@@ -267,11 +281,12 @@ def export_expenses(
             """
             SELECT name, amount, category, date
             FROM expenses
-            WHERE user_id = ?
+            WHERE user_id = %s
             ORDER BY date DESC
             """,
             (current_user["id"],)
         ).fetchall()
+
     finally:
         connection.close()
 

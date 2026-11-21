@@ -1,10 +1,10 @@
 
 import os
-import sqlite3
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 
 import jwt
+from psycopg.errors import UniqueViolation
 from dotenv import load_dotenv
 from pwdlib import PasswordHash
 
@@ -76,7 +76,7 @@ def get_current_user(token: str = Depends(oauth2_scheme)):
 
     try:
         user = connection.execute(
-            "SELECT id, username FROM users WHERE id = ?",
+            "SELECT id, username FROM users WHERE id = %s",
             (user_id,)
         ).fetchone()
 
@@ -103,20 +103,23 @@ def register_user(user: UserCreate):
         cursor = connection.execute(
             """
             INSERT INTO users (username, password_hash)
-            VALUES (?, ?)
+            VALUES (%s, %s)
+            RETURNING id
             """,
             (user.username, hashed_password)
         )
 
+        new_user_id = cursor.fetchone()["id"]
         connection.commit()
 
         return {
             "message": "Customer registered successfully",
-            "user_id": cursor.lastrowid,
+            "user_id": new_user_id,
             "username": user.username
         }
 
-    except sqlite3.IntegrityError:
+    except UniqueViolation:
+        connection.rollback()
         raise HTTPException(
             status_code=409,
             detail="Username already exists"
@@ -133,7 +136,7 @@ def login_user(form: OAuth2PasswordRequestForm = Depends()):
 
     try:
         user = connection.execute(
-            "SELECT * FROM users WHERE username = ?",
+            "SELECT * FROM users WHERE username = %s",
             (form.username,)
         ).fetchone()
 
